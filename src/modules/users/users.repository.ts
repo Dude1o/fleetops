@@ -27,4 +27,25 @@ export class UsersRepository {
       data,
     });
   }
+
+  async findByIdWithRoles(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 }

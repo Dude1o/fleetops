@@ -31,4 +31,8 @@ export class UsersService {
       password: hashedPassword,
     });
   }
+
+  async findByIdWithRoles(id: string) {
+    return this.usersRepository.findByIdWithRoles(id);
+  }
 }
