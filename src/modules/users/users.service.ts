@@ -1,13 +1,22 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
 import { UsersRepository } from './users.repository';
 
 import { CreateUserDto } from './dto/create-user.dto';
+import { RolesService } from '../roles/roles.service';
+import { UserRolesResponseDto } from './dto/user-roles-response.to';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly rolesService: RolesService,
+  ) {}
 
   async findById(id: string) {
     return this.usersRepository.findByid(id);
@@ -34,5 +43,31 @@ export class UsersService {
 
   async findByIdWithRoles(id: string) {
     return this.usersRepository.findByIdWithRoles(id);
+  }
+
+  async assignRole(userId: string, roleName: string) {
+    const user = await this.usersRepository.findByid(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return this.rolesService.assignRoleToUser(userId, roleName);
+  }
+
+  async getUserRoles(userId: string): Promise<UserRolesResponseDto> {
+    const user = await this.usersRepository.findByIdWithRoles(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return {
+      userId: user.id,
+      roles: user.roles.map((userRole) => ({
+        name: userRole.role.name,
+
+        permissions: userRole.role.permissions.map(
+          (rolePermission) => rolePermission.permission.name,
+        ),
+      })),
+    };
   }
 }

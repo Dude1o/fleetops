@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { RolesRepository } from './roles.repository';
+import { Prisma } from '../../generated/prisma/client';
 @Injectable()
 export class RolesService {
   constructor(private readonly rolesRepository: RolesRepository) {}
@@ -15,11 +16,16 @@ export class RolesService {
     if (!role) {
       throw new NotFoundException('Role not found');
     }
-
     try {
       return await this.rolesRepository.assignRoleToUser(userId, role.id);
     } catch (error) {
-      throw new ConflictException('Role is already assigned to this user');
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('Role is already assigned to this user');
+      }
+      throw error;
     }
   }
 }
