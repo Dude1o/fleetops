@@ -1,6 +1,9 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { JwtAuthguard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorstors/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/types/authenticated-user';
 
 @Controller('users')
 export class UsersController {
@@ -17,5 +20,11 @@ export class UsersController {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthguard)
+  getMe(@CurrentUser() user: AuthenticatedUser) {
+    return user;
   }
 }
