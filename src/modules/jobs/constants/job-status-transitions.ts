@@ -5,11 +5,7 @@ export const JOB_STATUS_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
 
   [JobStatus.AVAILABLE]: [JobStatus.ASSIGNED, JobStatus.CANCELLED],
 
-  [JobStatus.ASSIGNED]: [
-    JobStatus.PICKED_UP,
-    JobStatus.AVAILABLE,
-    JobStatus.CANCELLED,
-  ],
+  [JobStatus.ASSIGNED]: [JobStatus.PICKED_UP, JobStatus.CANCELLED],
 
   [JobStatus.PICKED_UP]: [JobStatus.IN_TRANSIT, JobStatus.CANCELLED],
 

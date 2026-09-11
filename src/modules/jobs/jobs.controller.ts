@@ -93,4 +93,11 @@ export class JobsController {
   async cancel(@Param('id') id: string) {
     return this.jobsService.cancelJob(id);
   }
+
+  @Post(':id/release')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('jobs:assign')
+  async release(@Param('id') id: string) {
+    return this.jobsService.releaseJob(id);
+  }
 }

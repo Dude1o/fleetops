@@ -135,6 +135,7 @@ export class JobsService {
       const assignment = await this.jobsRepository.createAssignment(tx, {
         jobId,
         driverId: driver.id,
+        claimedAt: new Date(),
       });
 
       await this.jobsRepository.updateJobStatus(tx, jobId, JobStatus.ASSIGNED);
@@ -274,6 +275,8 @@ export class JobsService {
       await this.jobsRepository.updateJobStatus(tx, jobId, JobStatus.CANCELLED);
 
       if (assignment) {
+        await this.jobsRepository.completeAssignment(tx, assignment.id);
+
         await this.jobsRepository.updateDriverStatus(
           tx,
           assignment.driverId,
@@ -284,6 +287,49 @@ export class JobsService {
       return {
         jobId,
         status: JobStatus.CANCELLED,
+      };
+    });
+  }
+
+  async releaseJob(jobId: string) {
+    return this.prismaService.$transaction(async (tx) => {
+      const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
+      if (!job) {
+        throw new NotFoundException('Job not found');
+      }
+
+      if (job.status !== JobStatus.ASSIGNED) {
+        throw new BadRequestException(
+          `Job cannot be released while status is ${job.status}`,
+        );
+      }
+
+      const assignment = await this.jobsRepository.findActiveAssignmentByJobId(
+        tx,
+        jobId,
+      );
+
+      if (!assignment) {
+        throw new BadRequestException(
+          'Assigned job does not have an active assignment',
+        );
+      }
+
+      await this.jobsRepository.completeAssignment(tx, assignment.id);
+
+      await this.jobsRepository.updateDriverStatus(
+        tx,
+        assignment.driverId,
+        DriverStatus.AVAILABLE,
+      );
+
+      await this.jobsRepository.updateJobStatus(tx, jobId, JobStatus.AVAILABLE);
+
+      return {
+        jobId,
+        status: JobStatus.AVAILABLE,
+        releasedAssignmentId: assignment.id,
+        driverId: assignment.driverId,
       };
     });
   }

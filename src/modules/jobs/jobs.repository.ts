@@ -57,6 +57,7 @@ export class JobsRepository {
     data: {
       jobId: string;
       driverId: string;
+      claimedAt?: Date;
     },
   ) {
     return client.jobAssignment.create({
