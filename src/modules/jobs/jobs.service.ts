@@ -148,4 +148,143 @@ export class JobsService {
       return assignment;
     });
   }
+
+  async pickupJob(jobId: string, userId: string) {
+    return this.prismaService.$transaction(async (tx) => {
+      const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
+      if (!job) {
+        throw new NotFoundException('Job not found');
+      }
+
+      if (job.status !== JobStatus.ASSIGNED) {
+        throw new BadRequestException(
+          `Job cannot be picked up while status is ${job.status}`,
+        );
+      }
+
+      const assignment = await this.jobsRepository.findAssignmentByJobAndUser(
+        tx,
+        jobId,
+        userId,
+      );
+
+      if (!assignment) {
+        throw new BadRequestException('You are not assigned to this job');
+      }
+
+      return this.jobsRepository.updateJobStatus(
+        tx,
+        jobId,
+        JobStatus.PICKED_UP,
+      );
+    });
+  }
+
+  async startTransitJob(jobId: string, userId: string) {
+    return this.prismaService.$transaction(async (tx) => {
+      const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
+      if (!job) {
+        throw new NotFoundException('Job not found');
+      }
+
+      if (job.status !== JobStatus.PICKED_UP) {
+        throw new BadRequestException(
+          `Job cannot start transit while status is ${job.status}`,
+        );
+      }
+
+      const assignment = await this.jobsRepository.findAssignmentByJobAndUser(
+        tx,
+        jobId,
+        userId,
+      );
+
+      if (!assignment) {
+        throw new BadRequestException('You are not assigned to this job');
+      }
+
+      return this.jobsRepository.updateJobStatus(
+        tx,
+        jobId,
+        JobStatus.IN_TRANSIT,
+      );
+    });
+  }
+
+  async deliverJob(jobId: string, userId: string) {
+    return this.prismaService.$transaction(async (tx) => {
+      const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
+      if (!job) {
+        throw new NotFoundException('Job not found');
+      }
+
+      if (job.status !== JobStatus.IN_TRANSIT) {
+        throw new BadRequestException(
+          `Job cannot be delivered while status is ${job.status}`,
+        );
+      }
+
+      const assignment = await this.jobsRepository.findAssignmentByJobAndUser(
+        tx,
+        jobId,
+        userId,
+      );
+
+      if (!assignment) {
+        throw new BadRequestException('You are not assigned to this job');
+      }
+
+      await this.jobsRepository.updateJobStatus(tx, jobId, JobStatus.DELIVERED);
+
+      await this.jobsRepository.completeAssignment(tx, assignment.id);
+
+      await this.jobsRepository.updateDriverStatus(
+        tx,
+        assignment.driverId,
+        DriverStatus.AVAILABLE,
+      );
+
+      return {
+        jobId,
+        status: JobStatus.DELIVERED,
+        assignmentId: assignment.id,
+        driverId: assignment.driverId,
+      };
+    });
+  }
+
+  async cancelJob(jobId: string) {
+    return this.prismaService.$transaction(async (tx) => {
+      const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
+      if (!job) {
+        throw new NotFoundException('Job not found');
+      }
+
+      if (!JOB_STATUS_TRANSITIONS[job.status].includes(JobStatus.CANCELLED)) {
+        throw new BadRequestException(
+          `Job cannot be cancelled while status is ${job.status}`,
+        );
+      }
+
+      const assignment = await this.jobsRepository.findActiveAssignmentByJobId(
+        tx,
+        jobId,
+      );
+
+      await this.jobsRepository.updateJobStatus(tx, jobId, JobStatus.CANCELLED);
+
+      if (assignment) {
+        await this.jobsRepository.updateDriverStatus(
+          tx,
+          assignment.driverId,
+          DriverStatus.AVAILABLE,
+        );
+      }
+
+      return {
+        jobId,
+        status: JobStatus.CANCELLED,
+      };
+    });
+  }
 }

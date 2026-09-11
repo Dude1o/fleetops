@@ -121,4 +121,49 @@ export class JobsRepository {
     `;
     return drivers[0] ?? null;
   }
+
+  async findAssignmentByJobAndUser(
+    client: Prisma.TransactionClient,
+    jobId: string,
+    userId: string,
+  ) {
+    return client.jobAssignment.findFirst({
+      where: {
+        jobId,
+        driver: {
+          userId,
+        },
+        completedAt: null,
+      },
+      include: {
+        driver: true,
+      },
+    });
+  }
+
+  async completeAssignment(
+    client: Prisma.TransactionClient,
+    assignmentId: string,
+  ) {
+    return client.jobAssignment.update({
+      where: {
+        id: assignmentId,
+      },
+      data: {
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  async findActiveAssignmentByJobId(
+    client: Prisma.TransactionClient,
+    jobId: string,
+  ) {
+    return client.jobAssignment.findFirst({
+      where: {
+        jobId,
+        completedAt: null,
+      },
+    });
+  }
 }

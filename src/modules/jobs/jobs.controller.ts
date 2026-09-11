@@ -56,4 +56,41 @@ export class JobsController {
   async claim(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.jobsService.claimJob(id, user.userId);
   }
+
+  @Post(':id/pickup')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('jobs:claim')
+  async pickup(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.jobsService.pickupJob(id, user.userId);
+  }
+
+  @Post(':id/start-transit')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('jobs:claim')
+  async startTransit(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.jobsService.startTransitJob(id, user.userId);
+  }
+
+  @Post(':id/deliver')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('jobs:claim')
+  async deliver(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.jobsService.deliverJob(id, user.userId);
+  }
+
+  @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('jobs:assign')
+  async cancel(@Param('id') id: string) {
+    return this.jobsService.cancelJob(id);
+  }
 }
