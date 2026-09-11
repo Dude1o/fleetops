@@ -3,12 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import * as bcrypt from 'bcrypt';
 
 import { UsersRepository } from './users.repository';
+import { RolesService } from '../roles/roles.service';
 
 import { CreateUserDto } from './dto/create-user.dto';
-import { RolesService } from '../roles/roles.service';
 import { UserRolesResponseDto } from './dto/user-roles-response.to';
 
 @Injectable()
@@ -47,6 +48,7 @@ export class UsersService {
 
   async assignRole(userId: string, roleName: string) {
     const user = await this.usersRepository.findByid(userId);
+
     if (!user) {
       throw new Error('User not found');
     }
@@ -56,9 +58,11 @@ export class UsersService {
 
   async getUserRoles(userId: string): Promise<UserRolesResponseDto> {
     const user = await this.usersRepository.findByIdWithRoles(userId);
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
     return {
       userId: user.id,
       roles: user.roles.map((userRole) => ({

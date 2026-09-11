@@ -1,24 +1,20 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+
 import { UsersService } from './users.service';
+
 import { CreateUserDto } from './dto/create-user.dto';
+import { AssignRoleDto } from './dto/assign-role.dto';
+import type { AuthenticatedUser } from '../../common/types/authenticated-user';
+
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorstors/current-user.decorator';
-import type { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorstors/permissions.decorators';
-import { AssignRoleDto } from './dto/assign-role.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
   @Post()
   async createUser(@Body() dto: CreateUserDto) {
     const user = await this.usersService.createUser(dto);

@@ -5,10 +5,14 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Request } from 'express';
+
 import { UsersService } from '../../modules/users/users.service';
+
+import type { Request } from 'express';
 import type { AuthenticatedUser } from '../types/authenticated-user';
+
 import { PERMISSIONS_KEY } from '../decorstors/permissions.decorators';
+
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
@@ -20,6 +24,7 @@ export class PermissionsGuard implements CanActivate {
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
     );
+
     if (!requiredPermissions?.length) {
       return true;
     }
