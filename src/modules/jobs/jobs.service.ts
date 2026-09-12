@@ -13,6 +13,8 @@ import {
 } from '../../generated/prisma/client';
 
 import { PrismaService } from '../../database/prisma/prisma.service';
+import { RedisService } from '../../common/redis/redis.service';
+
 import { JOB_STATUS_TRANSITIONS } from './constants/job-status-transitions';
 
 @Injectable()
@@ -20,7 +22,12 @@ export class JobsService {
   constructor(
     private readonly jobsRepository: JobsRepository,
     private readonly prismaService: PrismaService,
+    private readonly redisService: RedisService,
   ) {}
+
+  private async invalidateAvailableJobsCache() {
+    await this.redisService.del('jobs:available');
+  }
 
   async findById(id: string) {
     const job = await this.jobsRepository.findById(id);
@@ -30,6 +37,22 @@ export class JobsService {
     }
 
     return job;
+  }
+
+  async findAvailableJobs() {
+    const cacheKey = 'jobs:available';
+
+    const cached = await this.redisService.get(cacheKey);
+
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const jobs = await this.jobsRepository.findAvailableJobs();
+
+    await this.redisService.set(cacheKey, JSON.stringify(jobs), 30);
+
+    return jobs;
   }
 
   async createJob(data: {
@@ -102,6 +125,8 @@ export class JobsService {
         DriverStatus.BUSY,
       );
 
+      await this.invalidateAvailableJobsCache();
+
       return assignment;
     });
   }
@@ -145,6 +170,8 @@ export class JobsService {
         driver.id,
         DriverStatus.BUSY,
       );
+
+      await this.invalidateAvailableJobsCache();
 
       return assignment;
     });
@@ -284,6 +311,8 @@ export class JobsService {
         );
       }
 
+      await this.invalidateAvailableJobsCache();
+
       return {
         jobId,
         status: JobStatus.CANCELLED,
@@ -324,6 +353,8 @@ export class JobsService {
       );
 
       await this.jobsRepository.updateJobStatus(tx, jobId, JobStatus.AVAILABLE);
+
+      await this.invalidateAvailableJobsCache();
 
       return {
         jobId,

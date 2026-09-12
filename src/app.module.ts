@@ -5,6 +5,7 @@ import configuration from './config/configuration';
 import { validationSchema } from './config/validation';
 
 import { PrismaModule } from './database/prisma/prisma.module';
+import { RedisModule } from './common/redis/redis.module';
 import { HealthModule } from './health/health.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -22,6 +23,8 @@ import { JobsModule } from './modules/jobs/jobs.module';
     }),
 
     PrismaModule,
+    RedisModule,
+
     HealthModule,
     UsersModule,
     AuthModule,

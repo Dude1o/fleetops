@@ -21,6 +21,22 @@ export class JobsRepository {
     });
   }
 
+  async findAvailableJobs() {
+    return this.prisma.job.findMany({
+      where: {
+        status: JobStatus.AVAILABLE,
+      },
+      orderBy: [
+        {
+          priority: 'desc',
+        },
+        {
+          createdAt: 'asc',
+        },
+      ],
+    });
+  }
+
   async create(data: {
     customerName: string;
     customerPhone: string;

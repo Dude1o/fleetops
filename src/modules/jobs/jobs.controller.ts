@@ -29,6 +29,13 @@ export class JobsController {
     return this.jobsService.createJob(dto);
   }
 
+  @Get('available')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('jobs:read')
+  async findAvailableJobs() {
+    return this.jobsService.findAvailableJobs();
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('jobs:read')
