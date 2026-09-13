@@ -1,38 +1,34 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-
 import {
   DriverStatus,
   JobPriority,
   JobStatus,
 } from '../../generated/prisma/client';
-
 import { PrismaService } from '../../database/prisma/prisma.service';
+import { RedisLockService } from '../../common/redis/redis-lock.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { JobsRepository } from './jobs.repository';
-
 import { validateJobStatusTransition } from './job-status-transitions';
-
 @Injectable()
 export class JobsService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly jobsRepository: JobsRepository,
     private readonly redisService: RedisService,
+    private readonly redisLockService: RedisLockService,
   ) {}
-
   async findById(id: string) {
     const job = await this.jobsRepository.findById(id);
     if (!job) {
       throw new NotFoundException('Job not found');
     }
-
     return job;
   }
-
   async createJob(data: {
     customerName: string;
     customerPhone: string;
@@ -43,13 +39,11 @@ export class JobsService {
   }) {
     return this.jobsRepository.create(data);
   }
-
   async updateStatus(id: string, status: JobStatus) {
     const job = await this.jobsRepository.findById(id);
     if (!job) {
       throw new NotFoundException('Job not found');
     }
-
     validateJobStatusTransition(job.status, status);
 
     const updatedJob = await this.jobsRepository.updateStatus(id, status);
@@ -58,11 +52,9 @@ export class JobsService {
 
     return updatedJob;
   }
-
   async findAvailableJobs() {
     const cacheKey = 'jobs:available';
     const cached = await this.redisService.get(cacheKey);
-
     if (cached) {
       return JSON.parse(cached);
     }
@@ -73,14 +65,12 @@ export class JobsService {
 
     return jobs;
   }
-
   async assignJob(jobId: string, driverId: string) {
     const result = await this.prismaService.$transaction(async (tx) => {
       const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
       if (!job) {
         throw new NotFoundException('Job not found');
       }
-
       validateJobStatusTransition(job.status, JobStatus.ASSIGNED);
 
       const driver = await this.jobsRepository.findDriverByIdForUpdate(
@@ -116,58 +106,73 @@ export class JobsService {
 
     return result;
   }
-
   async claimJob(jobId: string, userId: string) {
-    const assignment = await this.prismaService.$transaction(async (tx) => {
-      const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
-      if (!job) {
-        throw new NotFoundException('Job not found');
-      }
+    const lockKey = `jobs:claim:${jobId}`;
+    const lockToken = await this.redisLockService.acquire(lockKey, 10_000);
 
-      validateJobStatusTransition(job.status, JobStatus.ASSIGNED);
-
-      const driver = await this.jobsRepository.findDriverByUserIdForUpdate(
-        tx,
-        userId,
+    if (!lockToken) {
+      throw new ConflictException(
+        'Job is currently being claimed by another driver',
       );
+    }
 
-      if (!driver) {
-        throw new NotFoundException('Driver profile not found');
-      }
+    try {
+      const assignment = await this.prismaService.$transaction(async (tx) => {
+        const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
 
-      if (driver.status !== DriverStatus.AVAILABLE) {
-        throw new BadRequestException('Driver is not available');
-      }
+        if (!job) {
+          throw new NotFoundException('Job not found');
+        }
 
-      const newAssignment = await this.jobsRepository.createAssignment(tx, {
-        jobId,
-        driverId: driver.id,
-        claimedAt: new Date(),
+        validateJobStatusTransition(job.status, JobStatus.ASSIGNED);
+
+        const driver = await this.jobsRepository.findDriverByUserIdForUpdate(
+          tx,
+          userId,
+        );
+
+        if (!driver) {
+          throw new NotFoundException('Driver profile not found');
+        }
+
+        if (driver.status !== DriverStatus.AVAILABLE) {
+          throw new BadRequestException('Driver is not available');
+        }
+
+        const newAssignment = await this.jobsRepository.createAssignment(tx, {
+          jobId,
+          driverId: driver.id,
+          claimedAt: new Date(),
+        });
+
+        await this.jobsRepository.updateJobStatus(
+          tx,
+          jobId,
+          JobStatus.ASSIGNED,
+        );
+
+        await this.jobsRepository.updateDriverStatus(
+          tx,
+          driver.id,
+          DriverStatus.BUSY,
+        );
+
+        return newAssignment;
       });
 
-      await this.jobsRepository.updateJobStatus(tx, jobId, JobStatus.ASSIGNED);
+      await this.invalidateAvailableJobsCache();
 
-      await this.jobsRepository.updateDriverStatus(
-        tx,
-        driver.id,
-        DriverStatus.BUSY,
-      );
-
-      return newAssignment;
-    });
-
-    await this.invalidateAvailableJobsCache();
-
-    return assignment;
+      return assignment;
+    } finally {
+      await this.redisLockService.release(lockKey, lockToken);
+    }
   }
-
   async pickupJob(jobId: string, userId: string) {
     const result = await this.prismaService.$transaction(async (tx) => {
       const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
       if (!job) {
         throw new NotFoundException('Job not found');
       }
-
       validateJobStatusTransition(job.status, JobStatus.PICKED_UP);
 
       const assignment = await this.jobsRepository.findAssignmentByJobAndUser(
@@ -191,14 +196,12 @@ export class JobsService {
 
     return result;
   }
-
   async startTransitJob(jobId: string, userId: string) {
     const result = await this.prismaService.$transaction(async (tx) => {
       const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
       if (!job) {
         throw new NotFoundException('Job not found');
       }
-
       validateJobStatusTransition(job.status, JobStatus.IN_TRANSIT);
 
       const assignment = await this.jobsRepository.findAssignmentByJobAndUser(
@@ -222,14 +225,12 @@ export class JobsService {
 
     return result;
   }
-
   async deliverJob(jobId: string, userId: string) {
     const result = await this.prismaService.$transaction(async (tx) => {
       const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
       if (!job) {
         throw new NotFoundException('Job not found');
       }
-
       validateJobStatusTransition(job.status, JobStatus.DELIVERED);
 
       const assignment = await this.jobsRepository.findAssignmentByJobAndUser(
@@ -262,14 +263,12 @@ export class JobsService {
 
     return result;
   }
-
   async cancelJob(jobId: string) {
     const result = await this.prismaService.$transaction(async (tx) => {
       const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
       if (!job) {
         throw new NotFoundException('Job not found');
       }
-
       validateJobStatusTransition(job.status, JobStatus.CANCELLED);
 
       const assignment = await this.jobsRepository.findActiveAssignmentByJobId(
@@ -301,7 +300,6 @@ export class JobsService {
 
     return result;
   }
-
   async releaseJob(jobId: string) {
     const result = await this.prismaService.$transaction(async (tx) => {
       const job = await this.jobsRepository.findByIdForUpdate(tx, jobId);
@@ -319,6 +317,7 @@ export class JobsService {
         tx,
         jobId,
       );
+
       if (!assignment) {
         throw new BadRequestException(
           'Assigned job does not have an active assignment',
@@ -347,7 +346,6 @@ export class JobsService {
 
     return result;
   }
-
   private async invalidateAvailableJobsCache() {
     await this.redisService.del('jobs:available');
   }
