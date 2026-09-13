@@ -41,6 +41,8 @@ export class JobsRepository {
     customerName: string;
     customerPhone: string;
     pickupAddress: string;
+    pickupLatitude: number;
+    pickupLongitude: number;
     deliveryAddress: string;
     notes?: string;
     priority?: JobPriority;
@@ -50,6 +52,8 @@ export class JobsRepository {
         customerName: data.customerName,
         customerPhone: data.customerPhone,
         pickupAddress: data.pickupAddress,
+        pickupLatitude: data.pickupLatitude,
+        pickupLongitude: data.pickupLongitude,
         deliveryAddress: data.deliveryAddress,
         notes: data.notes,
         priority: data.priority,
@@ -182,5 +186,19 @@ export class JobsRepository {
         completedAt: null,
       },
     });
+  }
+
+  async findNearbyAvailableDrivers(jobId: string, radius: number) {
+    type NearbyDriver = {
+      id: string;
+      userId: string;
+      status: DriverStatus;
+      latitude: number;
+      longitude: number;
+      distanceMeters: number;
+    };
+    return this.prisma.$queryRaw<
+      NearbyDriver[]
+    >`SELECT d."id", d."userId", d."status", dl."latitude"::double precision AS "latitude", dl."longitude"::double precision AS "longitude", ST_Distance( dl."location", ST_SetSRID( ST_MakePoint( j."pickupLongitude", j."pickupLatitude" ), 4326 )::geography ) AS "distanceMeters" FROM "Job" j INNER JOIN "DriverLocation" dl ON TRUE INNER JOIN "Driver" d ON d."id" = dl."driverId" WHERE j."id" = ${jobId} AND d."status" = 'AVAILABLE' AND ST_DWithin( dl."location", ST_SetSRID( ST_MakePoint( j."pickupLongitude", j."pickupLatitude" ), 4326 )::geography, ${radius} ) ORDER BY "distanceMeters" ASC;`;
   }
 }

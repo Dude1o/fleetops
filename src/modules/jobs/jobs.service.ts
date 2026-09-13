@@ -33,6 +33,8 @@ export class JobsService {
     customerName: string;
     customerPhone: string;
     pickupAddress: string;
+    pickupLatitude: number;
+    pickupLongitude: number;
     deliveryAddress: string;
     notes?: string;
     priority?: JobPriority;
@@ -348,5 +350,15 @@ export class JobsService {
   }
   private async invalidateAvailableJobsCache() {
     await this.redisService.del('jobs:available');
+  }
+
+  async findNearbyAvailableDrivers(jobId: string, radius: number) {
+    const job = await this.jobsRepository.findById(jobId);
+
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    return this.jobsRepository.findNearbyAvailableDrivers(jobId, radius);
   }
 }

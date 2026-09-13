@@ -1,10 +1,13 @@
 import {
   IsEnum,
+  IsLatitude,
+  IsLongitude,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
 } from 'class-validator';
+
 import { JobPriority } from '../../../generated/prisma/client';
 
 export class CreateJobDto {
@@ -22,6 +25,12 @@ export class CreateJobDto {
   @MinLength(5)
   @MaxLength(500)
   pickupAddress: string;
+
+  @IsLatitude()
+  pickupLatitude: number;
+
+  @IsLongitude()
+  pickupLongitude: number;
 
   @IsString()
   @MinLength(5)

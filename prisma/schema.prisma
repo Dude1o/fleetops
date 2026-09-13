@@ -95,6 +95,9 @@ model Job {
   customerPhone String
 
   pickupAddress   String
+  pickupLatitude  Decimal @db.Decimal(10, 7)
+  pickupLongitude Decimal @db.Decimal(10, 7)
+
   deliveryAddress String
 
   notes String?

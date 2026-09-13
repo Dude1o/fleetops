@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -17,6 +18,7 @@ import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 import { AssignJobDto } from './dto/assign-job.dto';
 import { CurrentUser } from '../../common/decorstors/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
+import { FindNearbyDriversDto } from './dto/find-nearby-drivers.dto';
 
 @Controller('jobs')
 export class JobsController {
@@ -106,5 +108,15 @@ export class JobsController {
   @RequirePermissions('jobs:assign')
   async release(@Param('id') id: string) {
     return this.jobsService.releaseJob(id);
+  }
+
+  @Get(':id/nearby-drivers')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('drivers:read')
+  async findNearbyDrivers(
+    @Param('id') id: string,
+    @Query() query: FindNearbyDriversDto,
+  ) {
+    return this.jobsService.findNearbyAvailableDrivers(id, query.radius);
   }
 }

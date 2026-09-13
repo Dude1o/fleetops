@@ -71,4 +71,26 @@ export class DriversService {
 
     return this.driversRepository.updateStatus(driverId, newStatus);
   }
+
+  async updateLocation(driverId: string, latitude: number, longitude: number) {
+    const driver = await this.driversRepository.findById(driverId);
+
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    return this.driversRepository.updateLocation(driverId, latitude, longitude);
+  }
+
+  async findNearestAvailableDrivers(
+    latitude: number,
+    longitude: number,
+    radius: number,
+  ) {
+    return this.driversRepository.findNearestAvailableDrivers(
+      latitude,
+      longitude,
+      radius,
+    );
+  }
 }
