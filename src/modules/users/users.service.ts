@@ -50,7 +50,7 @@ export class UsersService {
     const user = await this.usersRepository.findByid(userId);
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return this.rolesService.assignRoleToUser(userId, roleName);

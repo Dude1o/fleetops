@@ -20,7 +20,10 @@ import { FindNearbyDriversDto } from './dto/find-nearby-drivers.dto';
 @Controller('drivers')
 export class DriversController {
   constructor(private readonly driversService: DriversService) {}
-  @Post() create(@Body() dto: CreateDriverDto) {
+  @Post()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('drivers:create')
+  create(@Body() dto: CreateDriverDto) {
     return this.driversService.createDriver(dto);
   }
 
@@ -41,7 +44,7 @@ export class DriversController {
   async findById(@Param('id') id: string) {
     const driver = await this.driversService.findById(id);
     if (!driver) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Driver not found');
     }
 
     return driver;

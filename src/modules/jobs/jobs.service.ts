@@ -54,18 +54,24 @@ export class JobsService {
 
     return updatedJob;
   }
-  async findAvailableJobs() {
-    const cacheKey = 'jobs:available';
+  async findAvailableJobs(page = 1, limit = 20, priority?: JobPriority) {
+    const cacheKey = `jobs:available:p${page}:l${limit}:${priority ?? 'all'}`;
     const cached = await this.redisService.get(cacheKey);
     if (cached) {
       return JSON.parse(cached);
     }
 
-    const jobs = await this.jobsRepository.findAvailableJobs();
+    const skip = (page - 1) * limit;
+    const [jobs, total] = await Promise.all([
+      this.jobsRepository.findAvailableJobs({ skip, take: limit, priority }),
+      this.jobsRepository.countAvailableJobs(priority),
+    ]);
 
-    await this.redisService.set(cacheKey, JSON.stringify(jobs), 30);
+    const result = { data: jobs, total, page, limit };
 
-    return jobs;
+    await this.redisService.set(cacheKey, JSON.stringify(result), 30);
+
+    return result;
   }
   async assignJob(jobId: string, driverId: string) {
     const result = await this.prismaService.$transaction(async (tx) => {
@@ -349,6 +355,11 @@ export class JobsService {
     return result;
   }
   private async invalidateAvailableJobsCache() {
+    // ponytail: KEYS scan, fine while cached pages are few; SCAN loop if it grows
+    await this.redisService.eval(
+      `for _,k in ipairs(redis.call('keys', KEYS[1])) do redis.call('del', k) end return 1`,
+      { keys: ['jobs:available*'], arguments: [] },
+    );
     await this.redisService.del('jobs:available');
   }
 

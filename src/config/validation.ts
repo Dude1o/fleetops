@@ -14,4 +14,10 @@ export const validationSchema = Joi.object({
   JWT_SECRET: Joi.string().min(32).required(),
 
   JWT_EXPIRES_IN: Joi.string().default('15m'),
+
+  REDIS_URL: Joi.string()
+    .pattern(/^redis:\/\/.+/)
+    .required(),
+
+  CORS_ORIGIN: Joi.string().allow('').default(''),
 });

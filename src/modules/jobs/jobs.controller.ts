@@ -19,6 +19,7 @@ import { AssignJobDto } from './dto/assign-job.dto';
 import { CurrentUser } from '../../common/decorstors/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { FindNearbyDriversDto } from './dto/find-nearby-drivers.dto';
+import { FindAvailableJobsDto } from './dto/find-available-jobs.dto';
 
 @Controller('jobs')
 export class JobsController {
@@ -34,8 +35,12 @@ export class JobsController {
   @Get('available')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('jobs:read')
-  async findAvailableJobs() {
-    return this.jobsService.findAvailableJobs();
+  async findAvailableJobs(@Query() query: FindAvailableJobsDto) {
+    return this.jobsService.findAvailableJobs(
+      query.page,
+      query.limit,
+      query.priority,
+    );
   }
 
   @Get(':id')

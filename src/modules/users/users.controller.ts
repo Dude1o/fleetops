@@ -16,6 +16,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('users:create')
   async createUser(@Body() dto: CreateUserDto) {
     const user = await this.usersService.createUser(dto);
 

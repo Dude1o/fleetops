@@ -21,10 +21,15 @@ export class JobsRepository {
     });
   }
 
-  async findAvailableJobs() {
+  async findAvailableJobs(options: {
+    skip: number;
+    take: number;
+    priority?: JobPriority;
+  }) {
     return this.prisma.job.findMany({
       where: {
         status: JobStatus.AVAILABLE,
+        ...(options.priority ? { priority: options.priority } : {}),
       },
       orderBy: [
         {
@@ -34,6 +39,17 @@ export class JobsRepository {
           createdAt: 'asc',
         },
       ],
+      skip: options.skip,
+      take: options.take,
+    });
+  }
+
+  async countAvailableJobs(priority?: JobPriority) {
+    return this.prisma.job.count({
+      where: {
+        status: JobStatus.AVAILABLE,
+        ...(priority ? { priority } : {}),
+      },
     });
   }
 

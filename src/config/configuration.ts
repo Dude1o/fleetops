@@ -8,4 +8,7 @@ export default () => ({
     secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
   },
+  redisUrl: process.env.REDIS_URL,
+  // ponytail: comma-separated allowlist, empty = same-origin only
+  corsOrigin: process.env.CORS_ORIGIN ?? '',
 });
